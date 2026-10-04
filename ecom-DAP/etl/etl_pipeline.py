@@ -52,6 +52,11 @@ def load(conn, df):
     print(f"Load: inserted {len(rows)} new rows")
 
 
+def refresh_summary(conn):
+    cursor = conn.cursor()
+    cursor.callproc("refresh_daily_summary")
+    print("Summary: daily_sales_summary refreshed")
+
 def main():
     conn = oracledb.connect(
         user=os.getenv("DB_USER"),
@@ -68,6 +73,7 @@ def main():
         df = extract("data/raw_orders.csv")
         df = transform(df, valid_customers, valid_products)
         load(conn, df)
+        refresh_summary(conn)
     except Exception as e:
         conn.rollback()
         print("ETL failed:", e)
