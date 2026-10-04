@@ -1,0 +1,10 @@
+order_id,customer_id,product_id,quantity,unit_price,order_date,status
+101,1,3,5,60,2026-10-03,delivered
+102,2,5,2,350,2026-10-03,Shipped
+103,3,2,1,500,2026-10-03,PENDING
+103,3,2,1,500,2026-10-03,PENDING
+104,4,4,1,2500,2026-10-04,delivered
+,5,1,1,55000,2026-10-04,pending
+105,2,3,-4,60,2026-10-04,shipped
+106,99,2,1,500,2026-10-04,delivered
+107,5,5,2,350,2026-10-04, Delivered
