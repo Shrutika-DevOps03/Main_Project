@@ -1,3 +1,4 @@
+![Tests](https://github.com/Shrutika-DevOps03/Main_Project/ecom-DAP/actions/workflows/tests.yml/badge.svg)
 # E-Commerce Data Pipeline
 
 A small end-to-end data engineering project. It cleans messy order
