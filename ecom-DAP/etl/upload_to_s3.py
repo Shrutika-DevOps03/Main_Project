@@ -1,3 +1,5 @@
+import os
+import sys
 import boto3
 
 s3 = boto3.client(
@@ -19,7 +21,10 @@ try:
 except s3.exceptions.BucketAlreadyOwnedByYou:
     print("Bucket already exists:", BUCKET)
 
-s3.upload_file("data/raw_orders.csv", BUCKET, "raw/raw_orders.csv")
+path = sys.argv[1] if len(sys.argv) > 1 else "data/raw_orders.csv"
+key = "raw/" + os.path.basename(path)
+s3.upload_file(path, BUCKET, key)
+print("Uploaded", path, "->", key)
 
 response = s3.list_objects_v2(Bucket=BUCKET)
 for obj in response.get("Contents", []):
