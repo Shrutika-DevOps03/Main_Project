@@ -5,16 +5,22 @@ data from a CSV file, loads it into an Oracle database, builds a
 daily sales summary, and serves the results through a REST API.
 
 ## Status
-Working locally. AWS deployment is planned (see Roadmap).
+
+Working locally. The AWS part runs on LocalStack (a local AWS
+simulator). Deployment to real AWS is planned.
 
 ## How it works
 
 ```
-raw_orders.csv -> Python ETL (clean + validate) -> Oracle: orders
-                                                      |
-                              stored procedure -> daily_sales_summary
-                                                      |
-                                          Flask REST API (JSON)
+raw/*.csv in S3 -> Lambda (quick cleaning) -> clean/*.csv in S3
+                                                   |
+                       Python ETL (validate against database, load)
+                                                   |
+                                             Oracle: orders
+                                                   |
+                          stored procedure -> daily_sales_summary
+                                                   |
+                                      Flask REST API (JSON)
 ```
 `scripts/run_etl.sh` runs the ETL and writes a daily log file.
 Cron runs it every day at 2 AM.
@@ -30,9 +36,16 @@ Cron runs it every day at 2 AM.
 - Flask API with 4 endpoints
 - Shell script and cron job, with one log file per day
 - 7 pytest unit tests for the cleaning logic
+- S3 bucket and a Python Lambda function on LocalStack: uploading a
+  CSV under raw/ triggers the cleaning step automatically
+- Deploy script (boto3) for the Lambda and the S3 trigger
+- Startup script that restarts the Docker services after a reboot
 
 ## Sample run
-The sample file has 9 rows. The ETL loads 5 and rejects 4
+- S3 bucket and a Python Lambda function on LocalStack: uploading a
+  CSV under raw/ triggers the cleaning step automatically
+- Deploy script (boto3) for the Lambda and the S3 trigger
+- Startup script that restarts the Docker services after a rebootThe sample file has 9 rows. The ETL loads 5 and rejects 4
 (1 duplicate, 1 missing order ID, 1 negative quantity,
 1 unknown customer).
 
@@ -81,6 +94,30 @@ python3 etl/etl_pipeline.py
 python3 api/app.py
 python3 -m pytest -v
 ```
+## Run the AWS part locally (LocalStack)
+Needs a free LocalStack auth token saved in ~/.localstack_token
+(never commit it). Add these to your .env:
+```
+AWS_ENDPOINT_URL=http://localhost:4566
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+AWS_DEFAULT_REGION=ap-south-1
+S3_BUCKET=ecom-raw-data
+S3_KEY=clean/raw_orders.csv
+```
+Then:
+```bash
+docker run -d --name localstack -p 4566:4566 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e LOCALSTACK_AUTH_TOKEN="$(cat ~/.localstack_token)" \
+  localstack/localstack
+python3 etl/upload_to_s3.py
+cd lambda_fn && python3 -m zipfile -c function.zip clean_orders.py && cd ..
+python3 scripts/deploy_lambda.py
+python3 etl/upload_to_s3.py data/raw_orders_2.csv
+python3 etl/show_s3.py
+S3_KEY=clean/raw_orders_2.csv python3 etl/etl_pipeline.py
+```
 
 ## Project structure
 ```
@@ -93,12 +130,14 @@ tests/     pytest unit tests
 ```
 
 ## Limitations
+- The AWS parts are tested on LocalStack, not on real AWS
+- LocalStack data is lost when its container restarts
 - Uses small sample data, not production volumes
 - Cron runs only while the machine is on
 - Full reload of the summary table (not incremental)
 
 ## Roadmap
-- [ ] AWS: S3 for raw files, Lambda triggered on upload
+- [ ] Deploy to real AWS with Terraform
 - [ ] Docker Compose for the whole project
 - [ ] GitHub Actions to run tests on every push
 - [ ] API error handling and pagination
