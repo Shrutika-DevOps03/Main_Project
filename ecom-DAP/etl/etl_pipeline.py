@@ -1,4 +1,5 @@
 import os
+import boto3
 import oracledb
 import pandas as pd
 from dotenv import load_dotenv
@@ -11,6 +12,12 @@ def extract(path):
     print(f"Extract: read {len(df)} rows")
     return df
 
+def extract_from_s3(bucket, key):
+    s3 = boto3.client("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL"))
+    obj = s3.get_object(Bucket=bucket, Key=key)
+    df = pd.read_csv(obj["Body"])
+    print(f"Extract: read {len(df)} rows from s3://{bucket}/{key}")
+    return df
 
 def transform(df, valid_customers, valid_products):
     start = len(df)
@@ -70,7 +77,11 @@ def main():
         cursor.execute("SELECT product_id FROM products")
         valid_products = [r[0] for r in cursor.fetchall()]
 
-        df = extract("data/raw_orders.csv")
+        bucket = os.getenv("S3_BUCKET")
+        if bucket:
+            df = extract_from_s3(bucket, os.getenv("S3_KEY"))
+        else:
+            df = extract("data/raw_orders.csv")
         df = transform(df, valid_customers, valid_products)
         load(conn, df)
         refresh_summary(conn)
