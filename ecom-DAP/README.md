@@ -41,6 +41,10 @@ Cron runs it every day at 2 AM.
   CSV under raw/ triggers the cleaning step automatically
 - Deploy script (boto3) for the Lambda and the S3 trigger
 - Startup script that restarts the Docker services after a reboot
+- 16 pytest unit tests (data cleaning and API), run automatically by
+  GitHub Actions on every push
+- API returns clean JSON errors: 400 for bad input, 404 for unknown
+  URLs, 503 when the database is down
 
 ## Sample run
 - S3 bucket and a Python Lambda function on LocalStack: uploading a
@@ -62,13 +66,14 @@ pytest, Git
 | GET /api/orders/total | Number of orders |
 | GET /api/revenue/daily | Orders and revenue per day |
 | GET /api/products/top | Top 5 products by revenue |
+| GET /api/orders?page=1&limit=10 | Orders, paginated (limit up to 100) |
 
 ## How to run
 
 ```bash
 # 1. Start Oracle
 docker run -d --name oracle-xe -p 1521:1521 \
-  -e ORACLE_PASSWORD=<admin-password> gvenzl/oracle-xe:21-slim
+| GET /api/orders?page=1&limit=10 | Orders, paginated (limit up to 100) |  -e ORACLE_PASSWORD=<admin-password> gvenzl/oracle-xe:21-slim
 
 # 2. In sqlplus (system/<admin-password>@//localhost:1521/XEPDB1)
 CREATE USER ecom IDENTIFIED BY <password>;
@@ -140,6 +145,4 @@ tests/     pytest unit tests
 ## Roadmap
 - [ ] Deploy to real AWS with Terraform
 - [ ] Docker Compose for the whole project
-- [ ] GitHub Actions to run tests on every push
-- [ ] API error handling and pagination
 - [ ] Incremental summary refresh
