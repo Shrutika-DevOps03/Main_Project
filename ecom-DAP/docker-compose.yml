@@ -1,0 +1,44 @@
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
+      APP_USER: ${DB_USER}
+      APP_USER_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./sql:/sql:ro
+      - ./docker/init-db.sh:/container-entrypoint-initdb.d/01_init.sh:ro
+      - ./docker/healthcheck.sh:/healthcheck.sh:ro
+    healthcheck:
+      test: ["CMD", "bash", "/healthcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 60s
+
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      LOCALSTACK_AUTH_TOKEN: ${LOCALSTACK_AUTH_TOKEN}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  api:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DSN: oracle:1521/XEPDB1
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+volumes:
+  oracle-data:

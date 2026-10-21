@@ -45,6 +45,8 @@ Cron runs it every day at 2 AM.
   GitHub Actions on every push
 - API returns clean JSON errors: 400 for bad input, 404 for unknown
   URLs, 503 when the database is down
+- Docker Compose: Oracle, LocalStack and the API start with one
+  command; Dockerfile for the API (gunicorn), custom healthcheck
 
 ## Sample run
 - S3 bucket and a Python Lambda function on LocalStack: uploading a
@@ -100,6 +102,19 @@ python3 etl/etl_pipeline.py
 python3 api/app.py
 python3 -m pytest -v
 ```
+
+## Quick start (Docker Compose)
+Needs Docker and a free LocalStack auth token.
+
+```bash
+cp .env.example .env     # then fill in passwords and your token
+docker compose up -d --build
+curl http://localhost:5000/api/orders/total
+```
+This starts Oracle (tables created automatically), LocalStack and the
+API (gunicorn). Oracle data lives in a Docker volume;
+`docker compose down -v` deletes it.
+
 ## Run the AWS part locally (LocalStack)
 Needs a free LocalStack auth token saved in ~/.localstack_token
 (never commit it). Add these to your .env:
@@ -113,10 +128,6 @@ S3_KEY=clean/raw_orders.csv
 ```
 Then:
 ```bash
-docker run -d --name localstack -p 4566:4566 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e LOCALSTACK_AUTH_TOKEN="$(cat ~/.localstack_token)" \
-  localstack/localstack
 python3 etl/upload_to_s3.py
 cd lambda_fn && python3 -m zipfile -c function.zip clean_orders.py && cd ..
 python3 scripts/deploy_lambda.py
@@ -144,5 +155,4 @@ tests/     pytest unit tests
 
 ## Roadmap
 - [ ] Deploy to real AWS with Terraform
-- [ ] Docker Compose for the whole project
 - [ ] Incremental summary refresh
