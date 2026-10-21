@@ -136,6 +136,43 @@ python3 etl/show_s3.py
 S3_KEY=clean/raw_orders_2.csv python3 etl/etl_pipeline.py
 ```
 
+## Backup and restore (Oracle Data Pump)
+Backed up the ECOM schema with `expdp`, deleted 9 orders on purpose,
+restored the ORDERS table with `impdp`, and checked the row counts
+(17 -> 8 -> 17).
+
+```bash
+docker compose exec oracle bash -c 'expdp ecom/$APP_USER_PASSWORD@//localhost:1521/XEPDB1 schemas=ECOM directory=DATA_PUMP_DIR dumpfile=ecom_backup.dmp logfile=ecom_export.log reuse_dumpfiles=yes'
+docker compose exec oracle bash -c 'impdp ecom/$APP_USER_PASSWORD@//localhost:1521/XEPDB1 tables=ORDERS directory=DATA_PUMP_DIR dumpfile=ecom_backup.dmp logfile=ecom_import.log table_exists_action=replace'
+```
+Dump files are copied out of the container with `docker compose cp`
+and are git-ignored.
+
+## Query tuning demo (Oracle)
+Built a separate 200,000-row table (`sql/generate_load.sql`) and
+compared execution plans for a one-day date-range query
+(`sql/tuning_demo.sql`). Dates are loaded in order, like a real orders
+table.
+
+| Plan | Operation | Estimated cost |
+|------|-----------|----------------|
+| Index on order_date available | INDEX RANGE SCAN | 12 |
+| Index made invisible | TABLE ACCESS FULL | 319 |
+| `TRUNC(order_date) = ...`, index available | TABLE ACCESS FULL | 324 |
+
+Index clustering factor: 1137 for 200,000 rows (good: rows for the
+same day are stored together).
+
+What I learned:
+- My first test data scattered the dates, and Oracle correctly ignored
+  the index (full scan, cost 344). The clustering factor explains why.
+- A function around an indexed column (`TRUNC(order_date)`) blocks the
+  index, so filter with a date range instead.
+
+Cost is Oracle's own estimate, not measured run time. The data is
+synthetic and the tests ran on a laptop, so this shows plan behaviour,
+not production performance.
+
 ## Project structure
 ```
 api/       Flask REST API
