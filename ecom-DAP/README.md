@@ -148,6 +148,11 @@ docker compose exec oracle bash -c 'impdp ecom/$APP_USER_PASSWORD@//localhost:15
 Dump files are copied out of the container with `docker compose cp`
 and are git-ignored.
 
+### Automated backup
+`scripts/backup_db.sh` exports the schema with Data Pump, copies a
+timestamped dump to `backups/`, checks it is not empty, logs the
+result and deletes dumps older than 7 days. Cron runs it daily at 1:30.
+
 ## Query tuning demo (Oracle)
 Built a separate 200,000-row table (`sql/generate_load.sql`) and
 compared execution plans for a one-day date-range query
