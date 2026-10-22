@@ -1,0 +1,122 @@
+# Real-time E-commerce Data Pipeline & Analytics Platform
+
+A small data pipeline: order CSV files go into S3, a Lambda function cleans them, an ETL script loads them into an Oracle database, and a Flask API serves the results.
+
+> **Note:** In Phase 1, AWS services (S3, Lambda) run locally using **LocalStack**, a free tool that copies AWS on your own computer. Nothing is deployed on real AWS yet.
+
+---
+
+## Roadmap
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | Local Pipeline with AWS Emulation (LocalStack) | Done |
+| 2 | Real AWS Deployment with Terraform and CloudWatch |  Planned |
+
+### Phase 1: Local Pipeline with AWS Emulation (LocalStack) 
+Everything runs on one machine with Docker. This phase proves the full flow works, is tested, and can be started with one command.
+
+### Phase 2: Real AWS Deployment (Planned)
+- Fix the AWS account (billing/support activation)
+- Write **Terraform** code to create S3, Lambda and IAM on real AWS
+- Add **CloudWatch** logs and monitoring
+- Switch from LocalStack to real AWS
+- Update this README with real deployment steps
+
+---
+
+## Architecture (simple view)
+
+```
+CSV file -> S3 (raw/) -> Lambda (cleans data) -> S3 (clean/)
+        -> ETL script -> Oracle database -> Flask API -> user
+```
+
+- **S3:** cloud file storage (a warehouse for files)
+- **Lambda:** a small function that runs without managing a server (the cleaning machine)
+- **ETL:** Extract, Transform, Load (reads, cleans, saves data)
+- **Oracle:** the database that stores orders
+- **Flask API:** a web service that answers data requests
+
+---
+
+## Project Index: Parts and Steps
+
+### Part 1: Database (Oracle in Docker) 
+- Oracle XE runs in a Docker container (`oracle-xe`, service `XEPDB1`)
+- 4 tables created, sample orders loaded
+- Files: `sql/schema.sql`, `sql/sample_data.sql`
+
+### Part 2: ETL Script (Python) 
+- Reads an order CSV, cleans it, loads it into the `orders` table
+- Safe to re-run (does not create duplicates)
+- Connects to Oracle using the `oracledb` library
+- Files: `etl/`, `data/raw_orders.csv`
+
+### Part 3: Stored Procedure 
+- `refresh_daily_summary` builds the daily sales summary table
+- Called automatically by the ETL script
+- File: `sql/procedures.sql`
+
+### Part 4: Flask REST API 
+- Endpoints: health, total orders, daily revenue, top products, orders list
+- Pagination on `/api/orders`
+- Clear JSON errors: 400 (bad request), 404 (not found), 503 (service unavailable)
+- File: `api/app.py`
+
+### Part 5: Scheduling 
+- `scripts/run_etl.sh` runs the ETL; cron (Linux timer) runs it on schedule
+- Logs are saved in `logs/`
+
+### Part 6: Testing 
+- 16 pytest tests (ETL cleaning logic and mocked API tests)
+- Mocked tests use fake data, so no real database is needed
+- Folder: `tests/`
+
+### Part 7: Local AWS with LocalStack 
+- S3 bucket `ecom-raw-data` with `raw/` and `clean/` folders
+- ETL reads its input from S3
+- Lambda `clean-orders` cleans raw files and writes to `clean/`
+- Verified end to end with two sample files
+- Files: `lambda_fn/clean_orders.py`, `scripts/deploy_lambda.py`, `etl/upload_to_s3.py`, `etl/show_s3.py`
+
+### Part 8: CI (GitHub Actions) 
+- Tests run automatically on every push
+- Workflow: `.github/workflows/ecom-dap-tests.yml`
+- All runs are green
+
+### Part 9: Docker Compose 
+- One file starts Oracle, LocalStack and the API (gunicorn)
+- Database schema loads automatically on first start
+- Files: `docker-compose.yml`, `Dockerfile`, `docker/`
+
+### Part 10: DBA Tasks (Oracle)
+- **Backup and restore** with Data Pump (Oracle's backup tool): exported the schema, deleted rows on purpose, restored them, count matched
+- **Backup script** `scripts/backup_db.sh`: timestamped dumps, empty-file check, 7-day retention, runs daily at 1:30 (before the 2:00 ETL)
+- **Index tuning demo** on 200,000 generated rows (`orders_demo` table):
+  - Index range scan: estimated cost 12
+  - Full table scan: estimated cost 319
+  - Using `TRUNC(order_date)` blocks the index: estimated cost 324
+  - Lesson: an index helps only when the query can use it
+- Files: `sql/generate_load.sql`, `sql/tuning_demo.sql`, `sql/cleanup_load.sql`
+
+### Part 11: AWS on Real Cloud, Terraform, CloudWatch (Phase 2)
+- Not started. Waiting for the AWS account fix.
+
+---
+
+## How to Run (Phase 1)
+
+1. Start the stack: `docker compose up -d`
+2. Upload a CSV: `python3 etl/upload_to_s3.py data/raw_orders_2.csv`
+3. Lambda cleans it automatically into `clean/`
+4. Run the ETL to load it into Oracle
+5. Open the API in a browser and check the results
+
+---
+
+## Skills Shown
+
+Python, Oracle SQL, PL/SQL stored procedures, Flask, Docker, Docker Compose, AWS S3 and 
+Lambda (via LocalStack), GitHub Actions CI, pytest, Linux shell scripting, cron, Data Pump 
+backup and restore, index tuning.
