@@ -10,6 +10,13 @@ daily sales summary, and serves the results through a REST API.
 Working locally. The AWS part runs on LocalStack (a local AWS
 simulator). Deployment to real AWS is planned.
 
+## Roadmap
+
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | Local Pipeline with AWS Emulation (LocalStack) | Done |
+| 2 | Real AWS Deployment with Terraform and CloudWatch |  Planned |
+
 ## How it works
 
 ```
